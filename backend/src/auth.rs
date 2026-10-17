@@ -69,6 +69,23 @@ pub fn verify_password(password: &str, hash: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// Token casuale (256 bit, esadecimale) da inviare via email.
+pub fn random_token() -> String {
+    use argon2::password_hash::rand_core::RngCore;
+    let mut bytes = [0u8; 32];
+    OsRng.fill_bytes(&mut bytes);
+    hex(&bytes)
+}
+
+pub fn token_hash(token: &str) -> String {
+    use sha2::{Digest, Sha256};
+    hex(&Sha256::digest(token.as_bytes()))
+}
+
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
 /// Estrattore per le rotte protette: `Authorization: Bearer <jwt>`.
 pub struct AuthUser {
     pub id: Uuid,

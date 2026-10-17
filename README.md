@@ -34,6 +34,11 @@ Browser (Dioxus/WASM) ──HTTP JSON──▶ /api/*        (registrazione, log
 - Ping WebSocket ogni 20 s; il client si riconnette con backoff esponenziale.
 - Le password sono salvate con **Argon2**, l'autenticazione usa **JWT** (HS256).
 - A fine partita vengono salvati risultato, statistiche e punteggio **Elo** (K=32).
+- **Email (opzionale)**: con l'SMTP configurato, alla registrazione parte un link di conferma
+  (valido 48 ore) e finché l'email non è confermata non si può giocare; c'è anche il recupero
+  password con link valido 1 ora. I token sono monouso e nel database ne è salvato solo l'hash
+  SHA-256; si può richiedere al massimo un'email al minuto per tipo. Senza SMTP gli account sono
+  attivi subito e il recupero password non è disponibile.
 
 ### Regole implementate
 
@@ -48,6 +53,11 @@ che ha preso. Punti: carte, denari, settebello, primiera, scope. Si gioca a 11/1
 |--------|-------------------------|--------|-------------------------------------|
 | POST   | `/api/auth/register`    | –      | `{username, email, password}`       |
 | POST   | `/api/auth/login`       | –      | `{login, password}` (username/email)|
+| POST   | `/api/auth/verify`      | –      | `{token}` dal link di conferma      |
+| POST   | `/api/auth/resend-verification` | Bearer | Reinvia l'email di conferma |
+| POST   | `/api/auth/forgot-password` | –  | `{email}`: invia il link di reset   |
+| POST   | `/api/auth/reset-password`  | –  | `{token, password}`                 |
+| GET    | `/api/config`           | –      | `{email_enabled}`                   |
 | GET    | `/api/me`               | Bearer | Profilo utente                      |
 | GET    | `/api/me/matches`       | Bearer | Ultime partite                      |
 | GET    | `/api/leaderboard`      | –      | Classifica Elo                      |
@@ -67,6 +77,21 @@ Apri <http://localhost:3000>. `docker-compose.local.yml` pubblica le porte sull'
 dominio sul servizio `app`, porta 3000) basta `docker-compose.yml`. L'immagine compila il frontend in WASM (`wasm-bindgen`) e il
 backend, poi serve entrambi da un unico container; PostgreSQL ha un volume persistente e le
 migrazioni (`backend/migrations`) vengono applicate all'avvio.
+
+### Variabili d'ambiente
+
+| Variabile | Obbligatoria | Descrizione |
+|-----------|--------------|-------------|
+| `JWT_SECRET` | sì | Almeno 32 caratteri casuali |
+| `POSTGRES_PASSWORD` | consigliata | Password del database (default `tabloza`) |
+| `POSTGRES_USER`, `POSTGRES_DB` | no | Default `tabloza` |
+| `PUBLIC_URL` | con SMTP | Indirizzo pubblico, es. `https://scopa.tuodominio.it` |
+| `SMTP_HOST` | no | Server SMTP; vuoto = email disattivate |
+| `SMTP_PORT` | no | Default 587 (465 con `SMTP_TLS=tls`) |
+| `SMTP_USER` | con SMTP | Account SMTP, usato anche come mittente |
+| `SMTP_PASSWORD` | con SMTP | Password SMTP |
+| `SMTP_TLS` | no | `starttls` (default), `tls` oppure `none` |
+| `TOKEN_TTL_HOURS` | no | Durata del login, default 168 |
 
 ## Sviluppo locale
 

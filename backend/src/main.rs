@@ -3,6 +3,7 @@ mod config;
 mod db;
 mod error;
 mod hub;
+mod mailer;
 mod routes;
 mod state;
 mod ws;
@@ -63,10 +64,27 @@ async fn main() -> anyhow::Result<()> {
         });
     }
 
+    let mailer = match &cfg.smtp {
+        Some(smtp) => {
+            let m = mailer::Mailer::new(smtp, &cfg.public_url)?;
+            if m.check().await {
+                tracing::info!(host = %smtp.host, "SMTP pronto");
+            } else {
+                tracing::warn!(host = %smtp.host, "server SMTP non raggiungibile: le email potrebbero non partire");
+            }
+            Some(Arc::new(m))
+        }
+        None => {
+            tracing::info!("SMTP non configurato: conferma email e recupero password disattivati");
+            None
+        }
+    };
+
     let state = AppState {
         db,
         jwt: Arc::new(JwtKeys::new(&cfg.jwt_secret, cfg.token_ttl_hours)),
         hub,
+        mailer,
     };
 
     let index = format!("{}/index.html", cfg.static_dir);

@@ -25,6 +25,15 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Imposta JWT_SECRET nel file .env (almeno 32 caratteri)}
       TOKEN_TTL_HOURS: ${TOKEN_TTL_HOURS:-168}
       RUST_LOG: ${RUST_LOG:-backend=info,tower_http=warn}
+      # Indirizzo pubblico del sito, usato nei link delle email
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
+      # Email (conferma account, recupero password). Senza SMTP_HOST sono disattivate.
+      # Il mittente è SMTP_USER, che quindi deve essere un indirizzo email.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_TLS: ${SMTP_TLS:-starttls}
     # Nessuna porta pubblicata sull'host: in produzione (es. Coolify) il traffico arriva
     # dal reverse proxy. Per l'uso in locale vedi docker-compose.local.yml.
     expose:

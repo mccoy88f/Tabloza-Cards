@@ -125,3 +125,5 @@ ul.rooms li { display: flex; justify-content: space-between; align-items: center
 .overlay { position: absolute; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; border-radius: 12px; z-index: 5; }
 .summary { min-width: 300px; max-width: 520px; text-align: center; }
 .summary table { margin: .8rem 0 1rem; }
+.success { color: #8fe08f; }
+.actions-row { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .6rem; }

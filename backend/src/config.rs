@@ -8,6 +8,27 @@ pub struct Config {
     pub static_dir: String,
     pub cors_origin: Option<String>,
     pub token_ttl_hours: i64,
+    /// Indirizzo pubblico del sito, usato nei link delle email.
+    pub public_url: String,
+    /// `None` = email disabilitate: account attivi subito, niente recupero password.
+    pub smtp: Option<SmtpConfig>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SmtpConfig {
+    pub host: String,
+    pub port: u16,
+    pub user: String,
+    pub password: String,
+    /// `starttls` (default), `tls` (implicito, porta 465) oppure `none` (solo test).
+    pub tls: String,
+}
+
+fn var(name: &str) -> Option<String> {
+    std::env::var(name)
+        .ok()
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
 }
 
 impl Config {
@@ -27,6 +48,32 @@ impl Config {
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(24 * 7),
+            public_url: var("PUBLIC_URL").unwrap_or_else(|| "http://localhost:3000".into()),
+            smtp: smtp_from_env()?,
         })
     }
+}
+
+fn smtp_from_env() -> anyhow::Result<Option<SmtpConfig>> {
+    let Some(host) = var("SMTP_HOST") else {
+        return Ok(None);
+    };
+    let tls = var("SMTP_TLS")
+        .unwrap_or_else(|| "starttls".into())
+        .to_lowercase();
+    anyhow::ensure!(
+        matches!(tls.as_str(), "starttls" | "tls" | "none"),
+        "SMTP_TLS deve essere starttls, tls oppure none"
+    );
+    let default_port = if tls == "tls" { 465 } else { 587 };
+    Ok(Some(SmtpConfig {
+        host,
+        port: match var("SMTP_PORT") {
+            Some(p) => p.parse().context("SMTP_PORT non valida")?,
+            None => default_port,
+        },
+        user: var("SMTP_USER").context("SMTP_USER mancante")?,
+        password: var("SMTP_PASSWORD").context("SMTP_PASSWORD mancante")?,
+        tls,
+    }))
 }

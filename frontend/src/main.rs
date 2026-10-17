@@ -5,7 +5,10 @@ mod pages;
 
 use api::Session;
 use dioxus::prelude::*;
-use pages::{Home, Leaderboard, Login, NotFound, Play, Profile, Register};
+use pages::{
+    ForgotPassword, Home, Leaderboard, Login, NotFound, Play, Profile, Register, ResetPassword,
+    VerifyEmail, VerifyNotice,
+};
 
 #[derive(Routable, Clone, PartialEq, Debug)]
 #[rustfmt::skip]
@@ -19,6 +22,12 @@ pub enum Route {
         Register {},
         #[route("/leaderboard")]
         Leaderboard {},
+        #[route("/verify?:token")]
+        VerifyEmail { token: String },
+        #[route("/forgot")]
+        ForgotPassword {},
+        #[route("/reset?:token")]
+        ResetPassword { token: String },
         #[layout(Online)]
             #[route("/play")]
             Play {},
@@ -82,13 +91,42 @@ fn Shell() -> Element {
     }
 }
 
-/// Layout delle pagine che richiedono login: apre il WebSocket.
+/// Layout delle pagine che richiedono login: aggiorna il profilo e apre il WebSocket
+/// solo se l'email è confermata.
 #[component]
 fn Online() -> Element {
-    let session = use_session();
+    let mut session = use_session();
     let nav = use_navigator();
     let token = session.read().as_ref().map(|s| s.token.clone());
+
+    // Profilo aggiornato dal server (es. email appena confermata o token scaduto).
+    let _refresh = use_resource(move || async move {
+        let Some(token) = session.peek().as_ref().map(|s| s.token.clone()) else {
+            return;
+        };
+        match api::me(&token).await {
+            Ok(user) => {
+                let changed = session.peek().as_ref().is_some_and(|s| s.user != user);
+                if changed {
+                    let s = Session { token, user };
+                    api::save_session(Some(&s));
+                    session.set(Some(s));
+                }
+            }
+            Err(e) if e == api::UNAUTHORIZED => {
+                api::save_session(None);
+                session.set(None);
+            }
+            Err(_) => {}
+        }
+    });
+
+    let verified = session
+        .read()
+        .as_ref()
+        .is_some_and(|s| s.user.email_verified);
     match token {
+        Some(_) if !verified => rsx! { VerifyNotice {} },
         Some(token) => rsx! { OnlineInner { token } },
         None => {
             nav.replace(Route::Login {});

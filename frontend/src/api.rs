@@ -4,11 +4,13 @@ use gloo_net::http::{Request, Response};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use shared::dto::{
-    ApiError, AuthResponse, LeaderboardEntry, LoginRequest, MatchRecord, RegisterRequest,
+    ApiError, AuthResponse, ForgotPasswordRequest, LeaderboardEntry, LoginRequest, MatchRecord,
+    MessageResponse, RegisterRequest, ResetPasswordRequest, ServerConfig, TokenRequest,
     UserProfile,
 };
 
 const STORAGE_KEY: &str = "tabloza.session";
+pub const UNAUTHORIZED: &str = "Credenziali non valide o sessione scaduta";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Session {
@@ -68,7 +70,7 @@ async fn parse<T: DeserializeOwned>(resp: Response) -> Result<T, String> {
         return resp.json::<T>().await.map_err(|e| e.to_string());
     }
     if resp.status() == 401 {
-        return Err("Credenziali non valide o sessione scaduta".into());
+        return Err(UNAUTHORIZED.into());
     }
     match resp.json::<ApiError>().await {
         Ok(e) => Err(e.error),
@@ -77,7 +79,19 @@ async fn parse<T: DeserializeOwned>(resp: Response) -> Result<T, String> {
 }
 
 async fn post<B: Serialize, T: DeserializeOwned>(path: &str, body: &B) -> Result<T, String> {
-    let resp = Request::post(&format!("{}{path}", api_base()))
+    post_auth(path, body, None).await
+}
+
+async fn post_auth<B: Serialize, T: DeserializeOwned>(
+    path: &str,
+    body: &B,
+    token: Option<&str>,
+) -> Result<T, String> {
+    let mut req = Request::post(&format!("{}{path}", api_base()));
+    if let Some(t) = token {
+        req = req.header("Authorization", &format!("Bearer {t}"));
+    }
+    let resp = req
         .json(body)
         .map_err(|e| e.to_string())?
         .send()
@@ -116,4 +130,40 @@ pub async fn my_matches(token: &str) -> Result<Vec<MatchRecord>, String> {
 
 pub async fn leaderboard() -> Result<Vec<LeaderboardEntry>, String> {
     get("/api/leaderboard?limit=50", None).await
+}
+
+pub async fn config() -> Result<ServerConfig, String> {
+    get("/api/config", None).await
+}
+
+pub async fn verify_email(token: &str) -> Result<MessageResponse, String> {
+    post(
+        "/api/auth/verify",
+        &TokenRequest {
+            token: token.to_string(),
+        },
+    )
+    .await
+}
+
+pub async fn resend_verification(token: &str) -> Result<MessageResponse, String> {
+    post_auth("/api/auth/resend-verification", &(), Some(token)).await
+}
+
+pub async fn forgot_password(email: &str) -> Result<MessageResponse, String> {
+    post(
+        "/api/auth/forgot-password",
+        &ForgotPasswordRequest {
+            email: email.to_string(),
+        },
+    )
+    .await
+}
+
+pub async fn reset_password(token: &str, password: &str) -> Result<MessageResponse, String> {
+    let req = ResetPasswordRequest {
+        token: token.to_string(),
+        password: password.to_string(),
+    };
+    post("/api/auth/reset-password", &req).await
 }

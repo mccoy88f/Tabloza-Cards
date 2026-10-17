@@ -11,6 +11,8 @@ pub fn Login() -> Element {
     let mut password = use_signal(String::new);
     let mut error = use_signal(|| None::<String>);
     let mut busy = use_signal(|| false);
+    let config = use_resource(api::config);
+    let email_enabled = matches!(&*config.read(), Some(Ok(c)) if c.email_enabled);
 
     let submit = move |ev: FormEvent| async move {
         ev.prevent_default();
@@ -48,6 +50,9 @@ pub fn Login() -> Element {
                 }
                 if let Some(e) = error() { p { class: "error", "{e}" } }
                 button { class: "btn", r#type: "submit", disabled: busy(), "Entra" }
+            }
+            if email_enabled {
+                p { class: "muted", Link { to: Route::ForgotPassword {}, "Password dimenticata?" } }
             }
             p { class: "muted", "Non hai un account? " Link { to: Route::Register {}, "Registrati" } }
         }

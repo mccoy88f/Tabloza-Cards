@@ -26,6 +26,8 @@ pub struct UserProfile {
     pub rating: i32,
     pub games_played: i32,
     pub games_won: i32,
+    /// Finché è `false` (e le email sono attive) l'utente non può giocare.
+    pub email_verified: bool,
     pub created_at: DateTime<Utc>,
 }
 
@@ -55,6 +57,34 @@ pub struct MatchRecord {
     pub finished_at: DateTime<Utc>,
 }
 
+/// `GET /api/config`: funzioni attive sul server.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ServerConfig {
+    /// Conferma email e recupero password disponibili.
+    pub email_enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenRequest {
+    pub token: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ForgotPasswordRequest {
+    pub email: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResetPasswordRequest {
+    pub token: String,
+    pub password: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MessageResponse {
+    pub message: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiError {
     pub error: String,
@@ -73,10 +103,14 @@ pub fn validate_registration(r: &RegisterRequest) -> Result<(), String> {
     if e.len() > 254 || !e.contains('@') || e.starts_with('@') || e.ends_with('@') {
         return Err("Email non valida".into());
     }
-    if r.password.len() < 8 {
+    validate_password(&r.password)
+}
+
+pub fn validate_password(password: &str) -> Result<(), String> {
+    if password.len() < 8 {
         return Err("La password deve avere almeno 8 caratteri".into());
     }
-    if r.password.len() > 128 {
+    if password.len() > 128 {
         return Err("Password troppo lunga".into());
     }
     Ok(())

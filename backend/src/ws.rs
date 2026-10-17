@@ -27,6 +27,16 @@ pub async fn ws_handler(
     Query(q): Query<WsAuth>,
 ) -> Result<Response, AppError> {
     let claims = state.jwt.verify(&q.token)?;
+    if state.mailer.is_some() {
+        let user = crate::db::find_user(&state.db, claims.sub)
+            .await?
+            .ok_or(AppError::Unauthorized)?;
+        if !user.email_verified {
+            return Err(AppError::Forbidden(
+                "Conferma la tua email per giocare".into(),
+            ));
+        }
+    }
     Ok(ws
         .max_message_size(MAX_FRAME)
         .on_upgrade(move |socket| run(socket, state, claims.sub, claims.name)))

@@ -14,6 +14,7 @@ pub struct UserRow {
     pub rating: i32,
     pub games_played: i32,
     pub games_won: i32,
+    pub email_verified: bool,
     pub created_at: DateTime<Utc>,
 }
 
@@ -26,27 +27,31 @@ impl From<UserRow> for UserProfile {
             rating: u.rating,
             games_played: u.games_played,
             games_won: u.games_won,
+            email_verified: u.email_verified,
             created_at: u.created_at,
         }
     }
 }
 
 const USER_COLS: &str =
-    "id, username, email, password_hash, rating, games_played, games_won, created_at";
+    "id, username, email, password_hash, rating, games_played, games_won, email_verified, created_at";
 
 pub async fn create_user(
     db: &PgPool,
     username: &str,
     email: &str,
     password_hash: &str,
+    email_verified: bool,
 ) -> sqlx::Result<UserRow> {
     sqlx::query_as::<_, UserRow>(&format!(
-        "INSERT INTO users (id, username, email, password_hash) VALUES ($1, $2, $3, $4) RETURNING {USER_COLS}"
+        "INSERT INTO users (id, username, email, password_hash, email_verified)
+         VALUES ($1, $2, $3, $4, $5) RETURNING {USER_COLS}"
     ))
     .bind(Uuid::new_v4())
     .bind(username)
     .bind(email)
     .bind(password_hash)
+    .bind(email_verified)
     .fetch_one(db)
     .await
 }
@@ -65,6 +70,110 @@ pub async fn find_user(db: &PgPool, id: Uuid) -> sqlx::Result<Option<UserRow>> {
         .bind(id)
         .fetch_optional(db)
         .await
+}
+
+pub async fn find_user_by_email(db: &PgPool, email: &str) -> sqlx::Result<Option<UserRow>> {
+    sqlx::query_as::<_, UserRow>(&format!(
+        "SELECT {USER_COLS} FROM users WHERE lower(email) = lower($1)"
+    ))
+    .bind(email)
+    .fetch_optional(db)
+    .await
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TokenKind {
+    Verify,
+    Reset,
+}
+
+impl TokenKind {
+    fn as_str(self) -> &'static str {
+        match self {
+            TokenKind::Verify => "verify",
+            TokenKind::Reset => "reset",
+        }
+    }
+}
+
+/// Crea un token monouso. Nel database finisce solo il suo hash SHA-256.
+/// Restituisce `None` se ne è già stato creato uno meno di `cooldown_secs` fa.
+pub async fn create_email_token(
+    db: &PgPool,
+    user: Uuid,
+    kind: TokenKind,
+    ttl: chrono::Duration,
+    cooldown_secs: i64,
+) -> sqlx::Result<Option<String>> {
+    let recent: Option<(i64,)> = sqlx::query_as(
+        "SELECT 1::BIGINT FROM email_tokens
+         WHERE user_id = $1 AND kind = $2 AND created_at > now() - make_interval(secs => $3)
+         LIMIT 1",
+    )
+    .bind(user)
+    .bind(kind.as_str())
+    .bind(cooldown_secs as f64)
+    .fetch_optional(db)
+    .await?;
+    if recent.is_some() {
+        return Ok(None);
+    }
+    let token = crate::auth::random_token();
+    let mut tx = db.begin().await?;
+    // Un solo token valido per tipo: i precedenti vengono invalidati.
+    sqlx::query(
+        "DELETE FROM email_tokens WHERE (user_id = $1 AND kind = $2) OR expires_at < now()",
+    )
+    .bind(user)
+    .bind(kind.as_str())
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query(
+        "INSERT INTO email_tokens (token_hash, user_id, kind, expires_at) VALUES ($1, $2, $3, $4)",
+    )
+    .bind(crate::auth::token_hash(&token))
+    .bind(user)
+    .bind(kind.as_str())
+    .bind(Utc::now() + ttl)
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(Some(token))
+}
+
+/// Consuma un token valido e non scaduto, restituendo l'utente a cui appartiene.
+pub async fn consume_email_token(
+    db: &PgPool,
+    token: &str,
+    kind: TokenKind,
+) -> sqlx::Result<Option<Uuid>> {
+    let row: Option<(Uuid,)> = sqlx::query_as(
+        "DELETE FROM email_tokens WHERE token_hash = $1 AND kind = $2 AND expires_at > now()
+         RETURNING user_id",
+    )
+    .bind(crate::auth::token_hash(token))
+    .bind(kind.as_str())
+    .fetch_optional(db)
+    .await?;
+    Ok(row.map(|r| r.0))
+}
+
+pub async fn mark_email_verified(db: &PgPool, user: Uuid) -> sqlx::Result<()> {
+    sqlx::query("UPDATE users SET email_verified = TRUE WHERE id = $1")
+        .bind(user)
+        .execute(db)
+        .await?;
+    Ok(())
+}
+
+/// Nuova password; chi ha ricevuto il link ha anche dimostrato di possedere l'email.
+pub async fn set_password(db: &PgPool, user: Uuid, password_hash: &str) -> sqlx::Result<()> {
+    sqlx::query("UPDATE users SET password_hash = $2, email_verified = TRUE WHERE id = $1")
+        .bind(user)
+        .bind(password_hash)
+        .execute(db)
+        .await?;
+    Ok(())
 }
 
 pub async fn leaderboard(db: &PgPool, limit: i64) -> sqlx::Result<Vec<LeaderboardEntry>> {

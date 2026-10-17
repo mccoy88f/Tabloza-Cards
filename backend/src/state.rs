@@ -1,5 +1,6 @@
 use crate::auth::JwtKeys;
 use crate::hub::Hub;
+use crate::mailer::Mailer;
 use sqlx::PgPool;
 use std::sync::Arc;
 
@@ -8,4 +9,5 @@ pub struct AppState {
     pub db: PgPool,
     pub jwt: Arc<JwtKeys>,
     pub hub: Arc<Hub>,
+    pub mailer: Option<Arc<Mailer>>,
 }

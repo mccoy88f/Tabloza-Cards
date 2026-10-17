@@ -10,6 +10,8 @@ pub enum AppError {
     #[error("credenziali non valide")]
     Unauthorized,
     #[error("{0}")]
+    Forbidden(String),
+    #[error("{0}")]
     Conflict(String),
     #[error("non trovato")]
     NotFound,
@@ -24,6 +26,7 @@ impl IntoResponse for AppError {
         let status = match &self {
             AppError::BadRequest(_) => StatusCode::BAD_REQUEST,
             AppError::Unauthorized => StatusCode::UNAUTHORIZED,
+            AppError::Forbidden(_) => StatusCode::FORBIDDEN,
             AppError::Conflict(_) => StatusCode::CONFLICT,
             AppError::NotFound => StatusCode::NOT_FOUND,
             AppError::Db(_) | AppError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
