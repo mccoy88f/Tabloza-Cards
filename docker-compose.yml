@@ -8,8 +8,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-tabloza}
     volumes:
       - pgdata:/var/lib/postgresql/data
-    ports:
-      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -27,8 +25,10 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Imposta JWT_SECRET nel file .env (almeno 32 caratteri)}
       TOKEN_TTL_HOURS: ${TOKEN_TTL_HOURS:-168}
       RUST_LOG: ${RUST_LOG:-backend=info,tower_http=warn}
-    ports:
-      - "${APP_PORT:-3000}:3000"
+    # Nessuna porta pubblicata sull'host: in produzione (es. Coolify) il traffico arriva
+    # dal reverse proxy. Per l'uso in locale vedi docker-compose.local.yml.
+    expose:
+      - "3000"
 
 volumes:
   pgdata:

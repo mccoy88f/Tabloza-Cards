@@ -1,0 +1,9 @@
+# Override per l'uso in locale: pubblica le porte sull'host.
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+services:
+  db:
+    ports:
+      - "127.0.0.1:5432:5432"
+  app:
+    ports:
+      - "${APP_PORT:-3000}:3000"

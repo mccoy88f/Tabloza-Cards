@@ -59,17 +59,19 @@ che ha preso. Punti: carte, denari, settebello, primiera, scope. Si gioca a 11/1
 ```bash
 cp .env.example .env
 # imposta JWT_SECRET (es. `openssl rand -hex 32`)
-docker compose up --build
+docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
 ```
 
-Apri <http://localhost:3000>. L'immagine compila il frontend in WASM (`wasm-bindgen`) e il
+Apri <http://localhost:3000>. `docker-compose.local.yml` pubblica le porte sull'host (app su
+`APP_PORT`, database su `127.0.0.1:5432`); in produzione dietro un reverse proxy (es. Coolify,
+dominio sul servizio `app`, porta 3000) basta `docker-compose.yml`. L'immagine compila il frontend in WASM (`wasm-bindgen`) e il
 backend, poi serve entrambi da un unico container; PostgreSQL ha un volume persistente e le
 migrazioni (`backend/migrations`) vengono applicate all'avvio.
 
 ## Sviluppo locale
 
 ```bash
-docker compose up -d db                     # solo il database
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d db   # solo il database
 cp .env.example .env                        # DATABASE_URL punta a localhost
 
 # Frontend: build una tantum servita dal backend
