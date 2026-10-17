@@ -1,0 +1,15 @@
+[package]
+name = "shared"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+postcard.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

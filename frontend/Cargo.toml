@@ -1,0 +1,19 @@
+[package]
+name = "frontend"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+shared.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid = { workspace = true, features = ["js"] }
+dioxus = { version = "0.7", default-features = false, features = ["web", "router", "lib", "launch", "logger"] }
+gloo-net = { version = "0.6", default-features = false, features = ["http", "json", "websocket"] }
+gloo-timers = { version = "0.3", features = ["futures"] }
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+futures-channel = "0.3"
+web-sys = { version = "0.3", features = ["Window", "Storage", "Location"] }
+js-sys = "0.3"
+tracing = "0.1"

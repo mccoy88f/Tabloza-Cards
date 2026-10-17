@@ -1,0 +1,12 @@
+# Configurazione per lo sviluppo con `dx serve` (opzionale).
+[application]
+name = "tabloza"
+default_platform = "web"
+out_dir = "dist"
+
+[web.app]
+title = "Tabloza · Scopa online"
+
+[web.watcher]
+reload_html = true
+watch_path = ["src", "assets"]

@@ -1,0 +1,25 @@
+[package]
+name = "backend"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+shared.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+axum = { version = "0.8", features = ["ws", "macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "sync", "time"] }
+tower-http = { version = "0.6", features = ["fs", "cors", "trace", "compression-gzip"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono", "macros", "migrate"] }
+argon2 = { version = "0.5", features = ["std"] }
+jsonwebtoken = "9"
+rand = "0.8"
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+dotenvy = "0.15"
+anyhow = "1"
